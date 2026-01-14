@@ -16,6 +16,8 @@ load_dotenv()
 # --- Configuration ---
 os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2", "false")
 os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "Movie Trivia Chatbot")
+load_dotenv(dotenv_path="C:\\Users\\shard\\OneDrive\\Documents\\movie_chatbot_project\\movie_chatbot_project\\.env",override = True)
+print(os.environ.get("OPENAI_API_KEY"))
 
 # --- PDF Ingestion ---
 def initialize_vector_store(pdf_path):
@@ -72,7 +74,7 @@ def create_chatbot_chain(vectorstore):
     return qa_chain
 
 # --- Initialization ---
-PDF_FILE_PATH = "movies_trivia.pdf"
+PDF_FILE_PATH = "C:\\Users\\shard\\OneDrive\\Documents\\movie_chatbot_project\\movie_chatbot_project\\movies_trivia.pdf"
 
 try:
     vector_store = initialize_vector_store(PDF_FILE_PATH)
@@ -82,12 +84,19 @@ except Exception as e:
     qa_chain = None
 
 # --- Gradio UI ---
-def chat_response(message, history):
-    if qa_chain is None:
-        return "Error: Chatbot not initialized. Check if the PDF file exists and API keys are set."
-    
-    response = qa_chain.invoke({"query": message})
-    return response["result"]
+def chat_response(message, history): 
+    print("History before appending:", history)
+    # Format the user message properly 
+    history.append({"role": "user", "content": message})
+    #print("Formatted messages:", messages)
+    # Send the query to the chain and get the response 
+    response = qa_chain.invoke({"query": message}) 
+    # Get the assistant's reply 
+    bot_message = response["result"] 
+    # Append the user-bot pair to history 
+    history.append({"role": "assistant", "content": bot_message}) 
+    print("History after appending:", history)
+    return "", history
 
 def clear_history():
     if qa_chain:
@@ -104,16 +113,26 @@ with gr.Blocks() as demo:
         clear = gr.Button("Clear History")
 
     def respond(message, chat_history):
-        bot_message = chat_response(message, chat_history)
-        chat_history.append((message, bot_message))
+        print(f"User Message: {message}") 
+        print(f"Chat History: {chat_history}") 
+        #chat_history.append({"role": "user", "content": message})
+        bot_message, chat_history = chat_response(message, chat_history)
+        #chat_history.append(("role": "assistant", "content": bot_message))
+        #chat_history.append({"role": "assistant", "content": bot_message})
+        print(f"Updated History: {chat_history}")
         return "", chat_history
 
-    submit.click(respond, [msg, chatbot], [msg, chatbot])
-    msg.submit(respond, [msg, chatbot], [msg, chatbot])
+    submit.click(respond, inputs=[msg, chatbot], outputs=[msg, chatbot])
+    msg.submit(respond, inputs=[msg, chatbot], outputs=[msg, chatbot])
     clear.click(lambda: [], None, chatbot, queue=False).then(clear_history)
     
     # Initial greeting
-    chatbot.value = [[None, "Hello, I am MovieBot, your movie trivia expert. Ask me anything about films!"]]
+    #chatbot.value = [[None, "Hello, I am MovieBot, your movie trivia expert. Ask me anything about films!"]]
+    chatbot.value = [{
+    "role": "assistant",
+    "content": [
+        {"type": "text", "text": "Hello, I am MovieBot, your movie trivia expert. Ask me anything about films!"}]}]
+
 
 if __name__ == "__main__":
     demo.launch()
